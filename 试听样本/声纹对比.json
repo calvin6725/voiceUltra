@@ -1,0 +1,10 @@
+{
+  "model": "wespeaker_zh_cnceleb_resnet34",
+  "metric": "cosine_similarity_not_percentage",
+  "scores": {
+    "旧版系统朗读对照.wav": 0.0951,
+    "克隆试听-fast-4步.wav": 0.8693,
+    "克隆试听-full-16步.wav": 0.8705,
+    "克隆试听-standard-4步.wav": 0.9251
+  }
+}
