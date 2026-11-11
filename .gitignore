@@ -1,0 +1,13 @@
+# 模型与运行产物（体积大，按需用 setup_voice.py 下载）
+models/
+voice-data/
+试听样本/
+
+# Python 运行时缓存
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# 运行日志
+*.log
