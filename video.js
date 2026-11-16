@@ -511,7 +511,7 @@ async function loadLocalVoices() {
     const voices = local.status === 'fulfilled' && Array.isArray(local.value.voices) ? local.value.voices : [];
     const data = cloned.status === 'fulfilled' ? cloned.value : {};
     S.cloneProfiles = data.profiles || [];
-    S.cloneQuality = data.qualities?.includes('standard') ? 'standard' : data.qualities?.[0];
+    S.cloneQuality = data.qualities?.includes('full') ? 'full' : data.qualities?.includes('standard') ? 'standard' : data.qualities?.[0];
     if (!voices.length && !S.cloneProfiles.length) throw new Error('尚未找到可用音色');
 
     const select = $('ttsVoice');
@@ -607,7 +607,7 @@ $('generateVoice').addEventListener('click', async () => {
 
   try {
     const payload = cloned
-      ? { id: $('ttsVoice').value.slice(6), text, quality: S.cloneQuality, speed: 1, steps: 4 }
+      ? { id: $('ttsVoice').value.slice(6), text, quality: S.cloneQuality, speed: 1 }
       : { text, voice: $('ttsVoice').value };
     const response = await fetch(cloned ? '/api/clone/generate' : '/api/tts', {
       method: 'POST',

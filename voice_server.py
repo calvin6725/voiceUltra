@@ -104,14 +104,22 @@ class VoiceHandler(SimpleHTTPRequestHandler):
                 return
             if url.path == "/api/clone/generate":
                 payload = self.read_json()
+                steps = payload.get("steps")
                 data, info = ENGINE.generate(
                     payload.get("id"), payload.get("text", ""),
-                    payload.get("quality", "fast"), float(payload.get("speed", 1)),
-                    int(payload.get("steps", 4)),
+                    payload.get("quality", "standard"),
+                    float(payload.get("speed", 1)),
+                    int(steps) if steps is not None else None,
+                    str(payload.get("prosody", "natural")),
+                    float(payload.get("pause_scale", 1.0)),
+                    bool(payload.get("mastering", True)),
                 )
                 self.send_bytes(200, "audio/wav", data, {
                     "X-Elapsed-Seconds": info["elapsed"],
                     "X-Audio-Seconds": info["duration"],
+                    "X-RTF": info.get("rtf") or "",
+                    "X-Chunks": info.get("chunks") or 1,
+                    "X-Provider": info.get("provider") or "",
                 })
                 return
             if url.path == "/api/tts":

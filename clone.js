@@ -6,7 +6,8 @@
     transcribing: '正在识别参考原话', loading_model: '正在载入克隆模型',
     synthesizing: '正在生成克隆配音'
   };
-  const qualityNames = { fast: '快速试听', standard: '音色优先', full: '实验模式' };
+  const qualityNames = { fast: '快速试听', standard: '均衡', full: '自然优先' };
+  const stepsForQuality = { fast: '4', standard: '8', full: '16' };
   const message = (id, text, error = false) => {
     get(id).textContent = text;
     get(id).classList.toggle('error', error);
@@ -20,8 +21,13 @@
     get('generateClone').disabled = !clone.ready || !clone.reference?.saved || changed || !get('cloneText').value.trim() || clone.busy;
     get('cloneCount').textContent = `${get('cloneText').value.length} / 3000`;
     get('cloneSpeedValue').textContent = `${Number(get('cloneSpeed').value).toFixed(2)} 倍`;
+    const pauseEl = get('clonePause');
+    if (pauseEl) get('clonePauseValue').textContent = `${Number(pauseEl.value).toFixed(2)} 倍`;
     get('generateCloneLabel').textContent = clone.busy ? '正在处理…' : '生成克隆配音';
-    for (const id of ['cloneStart', 'cloneLength', 'cloneName', 'cloneTranscript', 'cloneText', 'cloneQuality', 'cloneSteps', 'cloneSpeed']) get(id).disabled = clone.busy;
+    for (const id of ['cloneStart', 'cloneLength', 'cloneName', 'cloneTranscript', 'cloneText', 'cloneQuality', 'cloneSteps', 'cloneSpeed', 'cloneProsody', 'clonePause', 'cloneMastering']) {
+      const el = get(id);
+      if (el) el.disabled = clone.busy;
+    }
     get('cloneProfiles').querySelectorAll('button').forEach(button => button.disabled = clone.busy);
   }
   async function api(path, options) {
@@ -43,13 +49,22 @@
     clone.url = null;
     get('cloneResult').hidden = true;
   }
+  function qualityText(reference) {
+    const q = reference.quality;
+    if (!q) return '';
+    const tips = (q.tips || []).join('；');
+    return `参考质量 ${q.score} 分（${q.verdict}）${tips ? ' · ' + tips : ''}`;
+  }
   function select(reference) {
     clone.reference = reference;
     get('cloneTranscript').value = reference.text;
     get('cloneName').value = (reference.saved ? reference.name : reference.name.replace(/\.[^.]+$/, '')).slice(0, 50);
     get('cloneReferenceAudio').src = `/api/clone/reference/${reference.id}`;
     get('cloneReferenceEditor').hidden = false;
-    message('cloneWarning', (reference.warnings || []).join('；'));
+    const warnings = [...(reference.warnings || [])];
+    const qt = qualityText(reference);
+    if (qt) warnings.unshift(qt);
+    message('cloneWarning', warnings.join('；'));
     message('cloneStatus', `参考片段 ${reference.duration.toFixed(1)} 秒 · ${reference.saved ? '音色已保存' : '请核对原话后保存音色'}`);
     clearResult();
     renderProfiles();
@@ -98,15 +113,26 @@
       clone.ready = data.qualities.length > 0;
       clone.profiles = data.profiles;
       for (const option of get('cloneQuality').options) option.disabled = !data.qualities.includes(option.value);
-      const preferred = data.qualities.includes('standard') ? 'standard' : data.qualities[0];
-      if (preferred) get('cloneQuality').value = preferred;
-      get('cloneEngine').textContent = clone.ready ? '本地 AI 克隆' : '模型尚未安装';
+      // Naturalness first: prefer full, then standard, then fast.
+      const preferred = data.qualities.includes('full') ? 'full'
+        : data.qualities.includes('standard') ? 'standard' : data.qualities[0];
+      if (preferred) {
+        get('cloneQuality').value = preferred;
+        get('cloneSteps').value = stepsForQuality[preferred] || '8';
+      }
+      const hw = data.hardware || {};
+      const provider = data.provider || 'cpu';
+      const threads = data.threads || '';
+      const gpu = hw.gpu ? ` · ${hw.gpu}` : '';
+      get('cloneEngine').textContent = clone.ready
+        ? `本地 AI 克隆 · ${provider}${threads ? ` · ${threads} 线程` : ''}${gpu}`
+        : '模型尚未安装';
       let active;
       try { active = localStorage.getItem('voiceLabCloneActive'); } catch {}
       const profile = clone.profiles.find(item => item.id === active) || clone.profiles[0];
       if (profile) select(profile);
       else renderProfiles();
-      if (!clone.ready) message('cloneStatus', '请先安装本地声音克隆模型', true);
+      if (!clone.ready) message('cloneStatus', '请先安装本地声音克隆模型（运行 setup_voice.py）', true);
     } catch {
       clone.ready = false;
       get('cloneEngine').textContent = '本地服务未连接';
@@ -166,15 +192,22 @@
     clearResult();
     message('cloneProgress', '正在准备克隆配音…');
     const quality = get('cloneQuality').value;
-    const response = await api('/api/clone/generate', json({
+    const payload = {
       id: clone.reference.id, text: get('cloneText').value,
-      quality, speed: Number(get('cloneSpeed').value), steps: Number(get('cloneSteps').value)
-    }));
+      quality, speed: Number(get('cloneSpeed').value), steps: Number(get('cloneSteps').value),
+      prosody: get('cloneProsody') ? get('cloneProsody').value : 'natural',
+      pause_scale: get('clonePause') ? Number(get('clonePause').value) : 1.0,
+      mastering: get('cloneMastering') ? get('cloneMastering').checked : true,
+    };
+    const response = await api('/api/clone/generate', json(payload));
     const blob = await response.blob();
     clone.url = URL.createObjectURL(blob);
     get('cloneResultAudio').src = clone.url;
     get('cloneResultName').textContent = `${clone.reference.name} · 克隆配音`;
-    get('cloneTiming').textContent = `${qualityNames[quality]} · 生成 ${response.headers.get('X-Elapsed-Seconds')} 秒 · 音频 ${response.headers.get('X-Audio-Seconds')} 秒`;
+    const rtf = response.headers.get('X-RTF');
+    const chunks = response.headers.get('X-Chunks');
+    const provider = response.headers.get('X-Provider');
+    get('cloneTiming').textContent = `${qualityNames[quality]} · 生成 ${response.headers.get('X-Elapsed-Seconds')} 秒 · 音频 ${response.headers.get('X-Audio-Seconds')} 秒${rtf ? ` · RTF ${rtf}` : ''}${chunks ? ` · ${chunks} 段` : ''}${provider ? ` · ${provider}` : ''}`;
     get('cloneResult').hidden = false;
     message('cloneProgress', '配音已生成');
     try {
@@ -192,18 +225,21 @@
     if (!clone.url) return;
     const link = document.createElement('a');
     link.href = clone.url;
-    link.download = `${clone.reference.name.replace(/[<>:"/\\|?*]/g, '-')}-克隆配音.wav`;
+    link.download = `${clone.reference.name.replace(/[<>:\"/\\|?*]/g, '-')}-克隆配音.wav`;
     link.click();
   });
-  for (const id of ['cloneTranscript', 'cloneName', 'cloneText', 'cloneSpeed', 'cloneQuality', 'cloneSteps']) {
-    get(id).addEventListener('input', () => {
+  for (const id of ['cloneTranscript', 'cloneName', 'cloneText', 'cloneSpeed', 'cloneQuality', 'cloneSteps', 'cloneProsody', 'clonePause', 'cloneMastering']) {
+    const el = get(id);
+    if (!el) continue;
+    el.addEventListener('input', () => {
       update();
-      if (['cloneText', 'cloneSpeed', 'cloneQuality', 'cloneSteps'].includes(id)) clearResult();
+      if (['cloneText', 'cloneSpeed', 'cloneQuality', 'cloneSteps', 'cloneProsody', 'clonePause', 'cloneMastering'].includes(id)) clearResult();
       if (id === 'cloneText') { try { localStorage.setItem('voiceLabCloneDraft', get(id).value); } catch {} }
     });
   }
   get('cloneQuality').addEventListener('change', () => {
-    if (get('cloneQuality').value === 'full') get('cloneSteps').value = '16';
+    const steps = stepsForQuality[get('cloneQuality').value];
+    if (steps) get('cloneSteps').value = steps;
     update();
   });
   get('cloneReferenceAudio').addEventListener('play', () => { get('cloneResultAudio').pause(); stop(true); });
