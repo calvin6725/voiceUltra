@@ -64,7 +64,7 @@
           <div id="cloneProfiles" class="clone-profiles" aria-label="已保存的克隆音色"></div>
           <div class="clone-reference-fields">
             <label class="lab-field"><span>片段起点（秒）</span><input id="cloneStart" type="number" min="0" step="0.1" value="0"></label>
-            <label class="lab-field"><span>片段长度（秒）</span><input id="cloneLength" type="number" min="3" max="20" step="0.1" value="12"></label>
+            <label class="lab-field"><span>片段长度（秒）</span><input id="cloneLength" type="number" min="3" max="30" step="0.1" value="12"></label>
             <button id="prepareClone" class="export-btn secondary-btn" disabled><i data-lucide="scan-line" aria-hidden="true"></i>提取参考片段</button>
           </div>
           <div id="cloneReferenceEditor" hidden>
@@ -81,9 +81,12 @@
             <label class="lab-field clone-text-label" for="cloneText">配音文字</label>
             <textarea id="cloneText" rows="5" maxlength="3000" placeholder="输入需要配音的内容…"></textarea>
             <div class="clone-options">
-              <label class="lab-field"><span>模型</span><select id="cloneQuality"><option value="fast">快速试听</option><option value="standard">音色优先</option><option value="full">实验模式（较慢）</option></select></label>
-              <label class="lab-field"><span>生成精度</span><select id="cloneSteps"><option value="4">标准</option><option value="8">精细</option><option value="16">高精细</option></select></label>
+              <label class="lab-field"><span>模型</span><select id="cloneQuality"><option value="full">自然优先（最像）</option><option value="standard">均衡</option><option value="fast">快速试听</option></select></label>
+              <label class="lab-field"><span>生成精度</span><select id="cloneSteps"><option value="16">高精细</option><option value="8">精细</option><option value="4">标准</option></select></label>
               <label class="lab-field clone-speed"><span>语速 <output id="cloneSpeedValue">1.00 倍</output></span><input id="cloneSpeed" type="range" min="0.75" max="1.35" step="0.05" value="1"></label>
+              <label class="lab-field"><span>语气</span><select id="cloneProsody"><option value="natural">自然</option><option value="broadcast">播报</option><option value="story">故事</option></select></label>
+              <label class="lab-field clone-speed"><span>停顿 <output id="clonePauseValue">1.00 倍</output></span><input id="clonePause" type="range" min="0.5" max="2" step="0.1" value="1"></label>
+              <label class="lab-field clone-check"><span><input id="cloneMastering" type="checkbox" checked> 后期增强（去假感）</span></label>
             </div>
             <div class="speech-actions"><span class="text-count" id="cloneCount">0 / 3000</span><button id="generateClone" class="export-btn" disabled><i data-lucide="audio-lines" aria-hidden="true"></i><span id="generateCloneLabel">生成克隆配音</span></button></div>
             <p id="cloneProgress" class="lab-message" role="status"></p>

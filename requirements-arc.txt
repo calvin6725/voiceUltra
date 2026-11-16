@@ -1,0 +1,7 @@
+# Optional: Intel Arc iGPU acceleration for Ultra 5 125H class machines.
+# Install INSTEAD OF the CPU onnxruntime bundled with sherpa-onnx:
+#   pip install -r requirements-voice.txt
+#   pip install onnxruntime-directml
+# The engine auto-detects DirectML and falls back to CPU when absent.
+# OpenVINO (iGPU/NPU) alternative: pip install openvino onnxruntime-openvino
+onnxruntime-directml>=1.20

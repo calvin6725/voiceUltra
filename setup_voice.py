@@ -83,7 +83,10 @@ def archive(tag, name):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--quality", choices=["fast", "standard", "full"], default="fast")
+    parser.add_argument("--quality", choices=["fast", "standard", "full"], default="standard",
+                        help="TTS model to download (default: standard = 均衡, natural)")
+    parser.add_argument("--all", action="store_true",
+                        help="download all three TTS models (fast + standard + full)")
     parser.add_argument("--asr", action="store_true")
     parser.add_argument("--speaker", action="store_true")
     args = parser.parse_args()
@@ -93,9 +96,12 @@ def main():
         "standard": "sherpa-onnx-zipvoice-distill-fp32-zh-en-emilia",
         "full": "sherpa-onnx-zipvoice-zh-en-emilia",
     }
-    archive("tts-models", names[args.quality] + ".tar.bz2")
-    if args.quality == "full":
-        archive("tts-models", names["fast"] + ".tar.bz2")
+    wanted = ["fast", "standard", "full"] if args.all else [args.quality]
+    # The full model needs the fast lexicon as fallback; ensure it exists.
+    if "full" in wanted and "fast" not in wanted:
+        wanted.append("fast")
+    for quality in wanted:
+        archive("tts-models", names[quality] + ".tar.bz2")
     download("vocoder-models", "vocos_24khz.onnx")
     download("tts-models", "lexicon-en-us.txt")
     if args.asr:
@@ -106,6 +112,9 @@ def main():
     if args.speaker:
         download("speaker-recongition-models", "wespeaker_zh_cnceleb_resnet34.onnx")
     print("Models ready.", flush=True)
+    print("提示：Intel Arc 核显加速（可选）", flush=True)
+    print("  pip install onnxruntime-directml   # 用 Arc iGPU 跑 TTS（DirectML）", flush=True)
+    print("  不装也能用：自动回退到 CPU 推理。", flush=True)
 
 
 if __name__ == "__main__":
